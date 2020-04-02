@@ -1,0 +1,187 @@
+---
+title: "Coronavirus in NYS (or elsewhere)"
+output: html_notebook
+---
+
+# About This Notebook
+
+This is an interactive programming environment for YOU to explore. It is also 
+an opportunity to discover/discuss using R Markdown to explore something I know
+interests you.
+
+I _always_ recommend you spend some time with the data.
+
+- [Coronavirus (Covid-19) Data in the United States](https://github.com/nytimes/covid-19-data/blob/master/README.md#geographic-exceptions)
+
+```{r message=FALSE, warning=FALSE}
+## INIT =======================================================================
+library(knitr) ## You may need to install this.
+library(maps) ## I'm sure you need to install this. 
+library(tidyverse)
+
+
+## Data =======================================================================
+
+## Downloading this will take a second.
+
+# County Grain Data ---------------------------------------
+data_url_counties <- "https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv"
+CountyCases <- read_csv(data_url_counties)
+
+# State Grain Data ----------------------------------------
+data_url_states <- "https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-states.csv"
+StateCases <- read_csv(data_url_states)
+```
+
+## Initial Data Exploration
+
+How many states are in the data set?
+graphing new your stgraphing new your st
+- This uses some semi-advanced dplyr trickery.
+- bind_cols lets us "bind" two tables together.
+- This is a little like a join, but there was no effort to make things 
+  line-up/equal.
+- This returns a number for the state-grain and couty-grain data.
+
+```{r}
+## This should look familiar.
+bind_cols(
+StateCases %>% 
+  summarize("State-Grain States" = n_distinct(state)),
+CountyCases %>% 
+  summarize("County-Grain States" = n_distinct(state))
+)
+
+```
+
+## What Are The Extra Five "States"?
+
+- Create a lir-choroplethrmapsst of the 50 staets. I stole this from Wikipedia.
+- We re-use the bind-cols trick.
+- We filter out the "standard" states and then print out what is left.
+
+```{r}
+## This syntax should be familiar to you.
+states <- c("Alabama", "Alaska", "Arizona", "Arkansas", "California",
+            "Colorado", "Connecticut", "Delaware", "Florida", "Georgia",
+            "Hawaii", "Idaho", "Illinois", "Indiana", "Iowa", "Kansas",
+            "Kentucky", "Louisiana", "Maine", "Maryland", "Massachusetts",
+            "Michigan", "Minnesota", "Mississippi", "Missouri", "Montana",
+            "Nebraska", "Nevada", "New Hampshire", "New Jersey", "New Mexico",
+            "New York", "North Carolina", "North Dakota", "Ohio", "Oklahoma",
+            "Oregon", "Pennsylvania", "Rhode Island", "South Carolina",
+            "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", 
+            "Virginia", "Washington", "West Virginia", "Wisconsin", "Wyoming")
+bind_cols(
+StateCases %>% 
+  select(state) %>%
+  distinct(state) %>%
+  filter(!state %in% states) %>%
+  rename("Not A State" = state),
+CountyCases %>% 
+  select(state) %>%
+  distinct(state) %>%
+  filter(!state %in% states) %>%
+  rename("Not A State" = state)
+)
+```
+
+In federal data sets, including these regions/areas as "states" is normal.
+
+# Analysis
+
+How can we get the most recent set of numbers?
+
+```{r}
+MaxDates <- 
+  StateCases %>%
+  group_by(state) %>%
+  summarize(max_date = max(date))
+
+StateCases %>%
+  inner_join(MaxDates, by = c("state" = "state", "date" = "max_date")) %>%
+  select(names(StateCases)) %>%
+  arrange(desc(cases))
+```
+
+Because these are in descending order of the number of cases, there is a 
+certain correlation with state size. But, not a perfect one. For example,
+Texas was below Georgia when I wrote this.
+
+So much has been written about this being an exponential curve. 
+
+```{r}
+ModelData <- StateCases %>% filter(cases >= 10,state == "New York")
+log_model <-lm(log(cases)~date,ModelData)
+log_data <- data.frame(date = ModelData$date,
+                       cases = exp(fitted(log_model)))
+
+## Actual Data
+StateCases %>%
+  filter(cases >= 10,state == "New York") %>%
+  ggplot(aes(x = date, y = cases, group=1)) +
+  geom_point() +
+  geom_line() +StateMapData
+  geom_smooth(method = "lm") +
+  geom_line(data = log_data, mapping = aes(date, cases), color = "green") +
+  ggtitle("Normal Graph of Cases")
+
+## Log Data
+StateCases %>%
+  filter(cases >= 10, state == "New York") %>%
+  mutate(log_cases = log(cases)) %>%
+  ggplot(aes(x = date, y = log_cases, group=1)) +
+  geom_point() +
+  geom_line() +
+  geom_smooth(method = "lm") +
+  ggtitle("Logged Plot of Cases")
+```
+
+- If you log your data, and a linear model is a good fit, you probably have exponential growth.
+- At some point, this will stop. If nothing else, we will all have had it once.
+
+```{r}
+summary(log_model)
+```
+
+- Note that our R^2 value is .98!!!
+- What does this mean?
+
+## Maps
+
+Everyone just loves a good choropleth map. So, let's do it.
+
+```{r}
+
+## First, let's load some map data and look at it.
+StatesMap <- map_data("state")
+
+## Now let's build our data set.
+## See how we are re-using our MaxDates data?
+## And . . . . see how this data transformation stuff IS useful?
+## When doing REAL statistics.
+
+## This steop takes a minute.
+StatesMapData <- 
+  StateCases %>% 
+  inner_join(MaxDates, by = c("state" = "state", "date" = "max_date")) %>%
+  select(names(StateCases)) %>%
+  mutate(region = tolower(state)) %>%
+  inner_join(StatesMap, by = "region")
+StatesMapData
+```
+
+
+We can use this to build a map.
+
+```{r}
+ggplot(StatesMapData, aes(long, lat, group = group))+
+  geom_polygon(aes(fill = cases), color = "white")+
+  theme_classic()
+```
+
+
+# Questions To Ponder
+
+- How is this data biased?
+- If you were the governor, what else would you want to know?
