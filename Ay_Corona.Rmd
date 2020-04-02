@@ -36,12 +36,12 @@ StateCases <- read_csv(data_url_states)
 ## Initial Data Exploration
 
 How many states are in the data set?
-graphing new your stgraphing new your st
+
 - This uses some semi-advanced dplyr trickery.
 - bind_cols lets us "bind" two tables together.
 - This is a little like a join, but there was no effort to make things 
   line-up/equal.
-- This returns a number for the state-grain and couty-grain data.
+- This returns a number for the state-grain and county-grain data.
 
 ```{r}
 ## This should look familiar.
@@ -56,7 +56,7 @@ CountyCases %>%
 
 ## What Are The Extra Five "States"?
 
-- Create a lir-choroplethrmapsst of the 50 staets. I stole this from Wikipedia.
+- Create a list of the 50 states. I stole this from Wikipedia.
 - We re-use the bind-cols trick.
 - We filter out the "standard" states and then print out what is left.
 
